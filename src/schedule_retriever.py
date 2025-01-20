@@ -144,10 +144,17 @@ class ScheduleRetriever:
         """
         try:
             time.sleep(1)
-            appointments = requests.get(
+            response = requests.get(
                 GOES_URL_FORMAT.format(location_id), timeout=30
-            ).json()
+            )
+        except OSError:
+            return
 
+        if 400 <= response.status_code < 500:
+            raise PermissionError(f"API Returned HTTP {response.status_code}")
+
+        try:
+            appointments = response.json()
             if not appointments:
                 self._clear_database_of_claimed_appointments(location_id, [])
                 print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: No active appointments available for location {location_id}.")
