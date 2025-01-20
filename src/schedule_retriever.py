@@ -118,9 +118,6 @@ class ScheduleRetriever:
 
         :return: None
         """
-        if not all_active_appointments:
-            return
-
         conn = sqlite3.connect("ttp.db")
         cursor = conn.cursor()
 
@@ -152,6 +149,7 @@ class ScheduleRetriever:
             ).json()
 
             if not appointments:
+                self._clear_database_of_claimed_appointments(location_id, [])
                 print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: No active appointments available for location {location_id}.")
                 return
             
