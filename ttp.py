@@ -16,7 +16,7 @@ def add_arguments(parser: argparse.ArgumentParser):
                         action='version',
                         version=f'%(prog)s {__version__}',
                         help='show the current version and exit')
-    
+
     parser.add_argument('-t', '--test-notifications',
                         action='store_true',
                         help='test the notification and exit')
@@ -24,15 +24,15 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument('-d', '--current-appointment-date',
                         type=str,
                         help='Current appointment date in the format "Month Day, Year" (e.g. "December 31, 2023")')
-    
+
     parser.add_argument('-l', '--location-ids',
                         type=str,
                         help='Comma-separated list of location IDs (e.g. 1020,1030)')
-    
+
     parser.add_argument('-n', '--notification-level',
                         type=int,
                         help='Notification level (e.g. 1)')
-    
+
     parser.add_argument('-u', '--notification-urls',
                         type=str,
                         help='Comma-separated list of notification URLs in the Apprise format (e.g. discord://id/token,discord://id/token)')
@@ -40,15 +40,15 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument('-r', '--retrieval-interval',
                         type=str,
                         help='Retrieval interval in specified unit (e.g. 5m)')
-    
+
     parser.add_argument('-s', '--start-appointment-time',
                         type=str,
                         help='The earliest appointment time you would like to be notified for in HH:MM format (e.g. 08:00)')
-    
+
     parser.add_argument('-e', '--end-appointment-time',
                         type=str,
                         help='The latest appointment time you would like to be notified for in in HH:MM format (e.g. 17:00)')
-    
+
 def config_from_arguments(args):
     if args.current_appointment_date:
         config.current_appointment_date = datetime.strptime(args.current_appointment_date, '%B %d, %Y')
@@ -73,13 +73,13 @@ def config_from_arguments(args):
             config.retrieval_interval = config.convert_to_seconds(args.retrieval_interval)
         except ValueError as err:
                 raise TypeError(err)
-        
+
     if args.start_appointment_time:
         try:
             config.start_appointment_time = config.convert_to_datetime(args.start_appointment_time)
         except ValueError as err:
                 raise TypeError(err)
-        
+
     if args.end_appointment_time:
         try:
             config.end_appointment_time = config.convert_to_datetime(args.end_appointment_time)

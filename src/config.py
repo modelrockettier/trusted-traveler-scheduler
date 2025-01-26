@@ -23,7 +23,7 @@ class Config:
         self.retrieval_interval = 300
         self.start_appointment_time = datetime(year=9999, month=12, day=31, hour=0, minute=0)
         self.end_appointment_time = datetime(year=9999, month=12, day=31, hour=23, minute=59)
-       
+
         # Read the config file
         config = self._get_config()
         self.locations = self._get_locations()
@@ -54,7 +54,7 @@ class Config:
             pass
 
         return config
-    
+
     def _get_locations(self) -> Dict[str, Any]:
         """
         Reads the locations file and returns its contents as a dictionary.
@@ -73,7 +73,7 @@ class Config:
             pass
 
         return locations
-    
+
     # This method ensures the configuration values are correct and the right types.
     # Defaults are already set in the constructor to ensure a value is never null.
     def _parse_config(self, config: Dict[str, Any]) -> None:
@@ -94,13 +94,13 @@ class Config:
                 self.current_appointment_date = datetime.strptime(self.current_appointment_date, '%B %d, %Y')
             except:
                 raise TypeError("'current_appointment_date' must be in the format of Month Day, Year (e.g. January 1, 2024)")
-        
+
         if "location_ids" in config:
             self.location_ids = config["location_ids"]
 
             if not isinstance(self.location_ids, (list, int)):
                 raise TypeError("'location_ids' must be a list or integer")
-            
+
         if "notification_level" in config:
             self.notification_level = config["notification_level"]
 
@@ -118,34 +118,34 @@ class Config:
 
             if not isinstance(self.retrieval_interval, str):
                 raise TypeError("'retrieval_interval' must be a string")
-            
+
             try:
                 self.retrieval_interval = self.convert_to_seconds(self.retrieval_interval)
             except ValueError as err:
                 raise TypeError(err)
-        
+
         if "start_appointment_time" in config:
             self.start_appointment_time = config["start_appointment_time"]
 
             if not isinstance(self.start_appointment_time, str):
                 raise TypeError("'start_appointment_time' must be a string")
-            
+
             try:
                 self.start_appointment_time = self.convert_to_datetime(self.start_appointment_time)
             except ValueError as err:
                 raise TypeError(err)
-            
+
         if "end_appointment_time" in config:
             self.end_appointment_time = config["end_appointment_time"]
 
             if not isinstance(self.end_appointment_time, str):
                 raise TypeError("'end_appointment_time' must be a string")
-            
+
             try:
                 self.end_appointment_time = self.convert_to_datetime(self.end_appointment_time)
             except ValueError as err:
                 raise TypeError(err)
-    
+
     def convert_to_seconds(self, time: str) -> int:
         """
         Converts a time string to seconds.
@@ -166,10 +166,10 @@ class Config:
             pass
 
         match = re.match(r'^(\d+)([smhd])$', time.lower())
-        
+
         if not match:
             raise ValueError(f"'retrieval_interval' must be in the format of <integer><unit>. (e.g. 45s (seconds), 30m (minutes), 2h (hours), 1d (days))")
-        
+
         value, unit = int(match.group(1)), match.group(2)
 
         if unit == "s":
@@ -182,7 +182,7 @@ class Config:
             return value * 86400
         else:
             raise ValueError(f"'retrieval_interval' invalid time unit: {unit}. Accepted units: s (seconds), m (minutes), h (hours), d (days).")
-        
+
     def convert_to_datetime(self, time: str) -> datetime:
         """
         Converts a time string to a datetime object.
@@ -197,5 +197,4 @@ class Config:
             ValueError: If the time string is not in the correct format.
         """
         return datetime.strptime(time, "%H:%M")
-        
-        
+

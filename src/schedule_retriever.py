@@ -5,7 +5,7 @@ from typing import List
 
 from .schedule import Schedule
 
-from .notifcation_handler import NotificationHandler
+from .notification_handler import NotificationHandler
 import requests
 from datetime import datetime
 
@@ -159,7 +159,7 @@ class ScheduleRetriever:
                 self._clear_database_of_claimed_appointments(location_id, [])
                 print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: No active appointments available for location {location_id}.")
                 return
-            
+
             schedule = []
             all_active_appointments = []
             for appointment in appointments:
@@ -175,7 +175,6 @@ class ScheduleRetriever:
                 return
 
             self.notification_handler.new_appointment(location_id, schedule)
-            
 
         except OSError:
             return

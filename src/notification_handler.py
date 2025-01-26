@@ -79,13 +79,13 @@ class NotificationHandler:
 
         appointment_message = f"New appointment(s) found for {self._get_location_name(location_id)}\n"
         for appointment in appointments:
-                limited_times = appointment.appointment_times[:3]
-                time_strings = [item.time().strftime('%I:%M %p') for item in limited_times]
-                times = ", ".join(time_strings)
+            limited_times = appointment.appointment_times[:3]
+            time_strings = [item.time().strftime('%I:%M %p') for item in limited_times]
+            times = ", ".join(time_strings)
 
-                if len(appointment.appointment_times) > 3:
-                    times += f', and {len(appointment.appointment_times) - 3} more'
+            if len(appointment.appointment_times) > 3:
+                times += f', and {len(appointment.appointment_times) - 3} more'
 
-                appointment_message += f"- {datetime.strftime(appointment.appointment_date, '%a, %B %d, %Y')} [{times}]\n"
+            appointment_message += f"- {datetime.strftime(appointment.appointment_date, '%a, %B %d, %Y')} [{times}]\n"
 
         self.send_notification(appointment_message, NotificationLevel.INFO)
