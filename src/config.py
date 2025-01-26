@@ -3,7 +3,7 @@ import re
 import os
 import sys
 from typing import Any, Dict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .notification_level import NotificationLevel
 
@@ -17,6 +17,7 @@ class Config:
     def __init__(self):
         # Default values are set
         self.current_appointment_date = None
+        self.travel_time = 900 # 15 minutes
         self.location_ids = []
         self.notification_level = NotificationLevel.INFO
         self.notification_urls = []
@@ -87,13 +88,16 @@ class Config:
             TypeError: If any of the configuration values are of the wrong type.
             ValueError: If any of the configuration values are invalid.
         """
-        if "current_appointment_date" in config and config["current_appointment_date"] != "":
+        if config.get("current_appointment_date"):
             self.current_appointment_date = config["current_appointment_date"]
 
             try:
                 self.current_appointment_date = datetime.strptime(self.current_appointment_date, '%B %d, %Y')
             except:
                 raise TypeError("'current_appointment_date' must be in the format of Month Day, Year (e.g. January 1, 2024)")
+
+            if self.current_appointment_date < datetime.now():
+                raise TypeError("'current_appointment_date' cannot be in the past")
 
         if "location_ids" in config:
             self.location_ids = config["location_ids"]
@@ -145,6 +149,14 @@ class Config:
                 self.end_appointment_time = self.convert_to_datetime(self.end_appointment_time)
             except ValueError as err:
                 raise TypeError(err)
+
+        if "travel_time" in config:
+            self.travel_time = config["travel_time"]
+
+            if not isinstance(self.travel_time, str):
+                raise TypeError("'travel_time' must be a string")
+
+            self.travel_time = self.convert_to_seconds(self.travel_time)
 
     def convert_to_seconds(self, time: str) -> int:
         """
@@ -198,3 +210,41 @@ class Config:
         """
         return datetime.strptime(time, "%H:%M")
 
+    def is_date_acceptable(self, when: datetime) -> bool:
+        """
+        Returns whether an appointment date is acceptable.
+
+        Args:
+            when: The appointment date
+
+        Returns:
+            True if the appointment date is acceptable, otherwise False.
+
+        Raises:
+            None
+        """
+        if (
+            self.current_appointment_date is not None
+            and when >= self.current_appointment_date
+        ):
+            return False
+
+        if (
+            self.travel_time is not None
+            and when < datetime.now() + timedelta(seconds=self.travel_time)
+        ):
+            return False
+
+        if (
+            self.start_appointment_time is not None
+            and when.time() < self.start_appointment_time.time()
+        ):
+            return False
+
+        if (
+            self.end_appointment_time is not None
+            and when.time() > self.end_appointment_time.time()
+        ):
+            return False
+
+        return True

@@ -49,9 +49,15 @@ def add_arguments(parser: argparse.ArgumentParser):
                         type=str,
                         help='The latest appointment time you would like to be notified for in in HH:MM format (e.g. 17:00)')
 
+    parser.add_argument('-T', '--travel-time',
+                        type=str,
+                        help='Only consider appointments at least this amount of time from now (default: 15m)')
+
 def config_from_arguments(args):
     if args.current_appointment_date:
         config.current_appointment_date = datetime.strptime(args.current_appointment_date, '%B %d, %Y')
+        if config.current_appointment_date < datetime.now():
+            raise TypeError("'current_appointment_date' cannot be in the past")
 
     if args.location_ids:
         location_ids = [int(x) for x in args.location_ids.split(',')]
@@ -83,6 +89,12 @@ def config_from_arguments(args):
     if args.end_appointment_time:
         try:
             config.end_appointment_time = config.convert_to_datetime(args.end_appointment_time)
+        except ValueError as err:
+                raise TypeError(err)
+
+    if args.travel_time:
+        try:
+            config.travel_time = config.convert_to_seconds(args.travel_time)
         except ValueError as err:
                 raise TypeError(err)
 

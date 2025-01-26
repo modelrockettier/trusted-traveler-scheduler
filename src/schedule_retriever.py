@@ -66,49 +66,38 @@ class ScheduleRetriever:
         :return: True if the appointment time is acceptable, False otherwise.
         :rtype: bool
         """
-        if (
-            self.config.current_appointment_date is None
-            or self.config.current_appointment_date > parsed_date
-        ):
-            if (
-                self.config.start_appointment_time is None
-                or self.config.start_appointment_time.time() <= parsed_date.time()
-            ):
-                if (
-                    self.config.end_appointment_time is None
-                    or self.config.end_appointment_time.time() >= parsed_date.time()
-                ):
-                    conn = sqlite3.connect("ttp.db")
+        if not self.config.is_date_acceptable(parsed_date):
+            return False
 
-                    cursor = conn.cursor()
+        conn = sqlite3.connect("ttp.db")
 
-                    # Check if there is an existing appointment with the same location ID and timestamp
-                    cursor.execute(
-                        """SELECT COUNT(*) FROM appointments
-                                    WHERE location_id = ? AND start_time = ?""",
-                        (location_id, parsed_date.isoformat()),
-                    )
+        cursor = conn.cursor()
 
-                    count = cursor.fetchone()[0]
+        # Check if there is an existing appointment with the same location ID and timestamp
+        cursor.execute(
+            """SELECT COUNT(*) FROM appointments
+                        WHERE location_id = ? AND start_time = ?""",
+            (location_id, parsed_date.isoformat()),
+        )
 
-                    if count > 0:
-                        conn.close()
+        count = cursor.fetchone()[0]
 
-                        return False
+        if count > 0:
+            conn.close()
 
-                    cursor.execute(
-                        """INSERT INTO appointments (location_id, start_time)
-                                    VALUES (?, ?)""",
-                        (location_id, parsed_date.isoformat()),
-                    )
+            return False
 
-                    conn.commit()
+        cursor.execute(
+            """INSERT INTO appointments (location_id, start_time)
+                        VALUES (?, ?)""",
+            (location_id, parsed_date.isoformat()),
+        )
 
-                    conn.close()
+        conn.commit()
 
-                    return True
+        conn.close()
 
-        return False
+        return True
 
     def _clear_database_of_claimed_appointments(
         self, location_id: int, all_active_appointments: List
