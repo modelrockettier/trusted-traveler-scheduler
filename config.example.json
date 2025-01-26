@@ -6,5 +6,6 @@
   "notification_urls": [ "discord://id/token" ],
   "retrieval_interval": "5m",
   "start_appointment_time": "00:00",
-  "end_appointment_time": "23:59"
+  "end_appointment_time": "23:59",
+  "database": "ttp.db"
 }

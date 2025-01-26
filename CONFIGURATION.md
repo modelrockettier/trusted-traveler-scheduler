@@ -14,6 +14,7 @@ This guide contains all the information you need to configure `trusted-traveler-
 - [Appointment Times](#appointment-times)
   - [Start Appointment Time](#start-appointment-time)
   - [End Appointment Time](#end-appointment-time)
+- [Database](#database)
 
 ## Current Appointment Date
 
@@ -154,6 +155,19 @@ This indicates the latest appointment you would like to be notified for. To be n
 ```json
 {
     "end_appointment_time": "20:00"
+}
+```
+
+## Database
+Default: "ttp.db"
+
+Type: String
+
+The sqlite3 database to store appointments to prevent duplicate notifications.
+
+```json
+{
+    "database": "ttp.db"
 }
 ```
 

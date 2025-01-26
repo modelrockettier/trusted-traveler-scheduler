@@ -26,41 +26,42 @@ class ScheduleRetriever:
         self.log = logging.getLogger("schedule_retriever")
 
     def _evaluate_timestamp(
-        self, schedule: List[Schedule], location_id: int, timestamp: str
+        self, db: sqlite3.Connection, schedule: List[Schedule], location_id: int, timestamp: str
     ) -> List[Schedule]:
         """
         Evaluates the given timestamp against the provided schedule and location ID. If the timestamp is within the
         acceptable range specified in the configuration, it is added to the schedule.
 
+        :param db: The connection to the sqlite3 database
+        :type db: sqlite3.Connection
         :param schedule: The current schedule to evaluate the timestamp against.
         :type schedule: List[Schedule]
         :param location_id: The ID of the location to evaluate the timestamp for.
         :type location_id: int
         :param timestamp: The timestamp to evaluate.
         :type timestamp: str
-        :return: The updated schedule.
-        :rtype: List[Schedule]
+        :return: None
         """
         parsed_date = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M")
 
         for dates in schedule:
             if dates.appointment_date.date() == parsed_date.date():
-                if self._is_acceptable_appointment(location_id, parsed_date):
+                if self._is_acceptable_appointment(db, location_id, parsed_date):
                     dates.appointment_times.append(parsed_date)
-                return schedule
+                return
 
-        if self._is_acceptable_appointment(location_id, parsed_date):
+        if self._is_acceptable_appointment(db, location_id, parsed_date):
             schedule.append(Schedule(parsed_date, [parsed_date]))
 
-        return schedule
-
     def _is_acceptable_appointment(
-        self, location_id: int, parsed_date: datetime
+        self, db: sqlite3.Connection, location_id: int, parsed_date: datetime
     ) -> bool:
         """
         Determines if the given appointment time is acceptable based on the configuration settings and existing
         appointments in the database.
 
+        :param db: The connection to the sqlite3 database
+        :type db: sqlite3.Connection
         :param location_id: The ID of the location to check the appointment time for.
         :type location_id: int
         :param parsed_date: The parsed datetime object representing the appointment time.
@@ -71,9 +72,7 @@ class ScheduleRetriever:
         if not self.config.is_date_acceptable(parsed_date):
             return False
 
-        conn = sqlite3.connect("ttp.db")
-
-        cursor = conn.cursor()
+        cursor = db.cursor()
 
         # Check if there is an existing appointment with the same location ID and timestamp
         cursor.execute(
@@ -85,8 +84,6 @@ class ScheduleRetriever:
         count = cursor.fetchone()[0]
 
         if count > 0:
-            conn.close()
-
             return False
 
         cursor.execute(
@@ -95,22 +92,23 @@ class ScheduleRetriever:
             (location_id, parsed_date.isoformat()),
         )
 
-        conn.commit()
-
-        conn.close()
-
         return True
 
     def _clear_database_of_claimed_appointments(
-        self, location_id: int, all_active_appointments: List
+        self, db: sqlite3.Connection, location_id: int, all_active_appointments: List
     ) -> None:
         """
         Clears the database of any appointments that have been claimed.
 
+        :param db: The connection to the sqlite3 database
+        :type db: sqlite3.Connection
+        :param location_id: The ID of the location to check the appointment time for.
+        :type location_id: int
+        :param all_active_appointments: The active appointments
+        :type all_active_appointments: List
         :return: None
         """
-        conn = sqlite3.connect("ttp.db")
-        cursor = conn.cursor()
+        cursor = db.cursor()
 
         cursor.execute(
             f"""DELETE FROM appointments
@@ -121,14 +119,13 @@ class ScheduleRetriever:
         if cursor.rowcount > 0:
             self.log.info(f"Removed {cursor.rowcount} appointments that have been claimed for location {location_id}.\n")
 
-        conn.commit()
-        conn.close()
-
-    def _get_schedule(self, location_id: int) -> None:
+    def _get_schedule(self, db: sqlite3.Connection, location_id: int) -> None:
         """
         Retrieves the schedule for the given location ID and evaluates the available appointment times. If there are
         any new appointments that meet the criteria specified in the configuration, a notification is sent.
 
+        :param db: The connection to the sqlite3 database
+        :type db: sqlite3.Connection
         :param location_id: The ID of the location to retrieve the schedule for.
         :type location_id: int
         :return: None
@@ -149,8 +146,9 @@ class ScheduleRetriever:
         try:
             appointments = response.json()
             if not appointments:
-                self._clear_database_of_claimed_appointments(location_id, [])
                 self.log.info(f"No active appointments available for location {location_id}.")
+                self._clear_database_of_claimed_appointments(db, location_id, [])
+                db.commit()
                 return
 
             self.log.debug(f"{len(appointments)} total appointments")
@@ -158,22 +156,23 @@ class ScheduleRetriever:
             all_active_appointments = []
             for appointment in appointments:
                 if appointment["active"]:
-                    schedule = self._evaluate_timestamp(
-                        schedule, location_id, appointment["startTimestamp"]
+                    self._evaluate_timestamp(
+                        db, schedule, location_id, appointment["startTimestamp"]
                     )
                     all_active_appointments.append(datetime.strptime(appointment["startTimestamp"], "%Y-%m-%dT%H:%M").isoformat())
 
             self.log.debug(f"{len(all_active_appointments)} acceptable appointments")
-            self._clear_database_of_claimed_appointments(location_id, all_active_appointments)
+            self._clear_database_of_claimed_appointments(db, location_id, all_active_appointments)
 
-            if not schedule:
-                return
-
-            self.notification_handler.new_appointment(location_id, schedule)
+            if schedule:
+                self.notification_handler.new_appointment(location_id, schedule)
 
         except OSError:
             if self.log.isEnabledFor(logging.DEBUG):
                 self.log.exception("Got OSError")
+
+        # Commit the updated list of appointments to the database
+        db.commit()
 
     def monitor_location(self, location_id: int) -> None:
         """
@@ -185,14 +184,16 @@ class ScheduleRetriever:
         :type location_id: int
         :return: None
         """
+        db = sqlite3.connect(self.config.database)
+
         if self.config.retrieval_interval == 0:
-            self._get_schedule(location_id)
+            self._get_schedule(db, location_id)
             return
 
         while True:
             time_before = datetime.utcnow()
 
-            self._get_schedule(location_id)
+            self._get_schedule(db, location_id)
 
             # Account for the time it takes to retrieve the location when
             # deciding how long to sleep
