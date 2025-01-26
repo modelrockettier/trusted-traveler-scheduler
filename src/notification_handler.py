@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+import logging
 
 from typing import TYPE_CHECKING, List
 
@@ -20,6 +21,7 @@ class NotificationHandler:
         self.notification_urls = self.schedule_retriever.config.notification_urls
         self.notification_level = self.schedule_retriever.config.notification_level
         self.locations = self.schedule_retriever.config.locations
+        self.log = logging.getLogger("notification_handler")
 
     def _get_location_name(self, location_id: int) -> str:
         """
@@ -43,7 +45,7 @@ class NotificationHandler:
             level (int, optional): The level of the notification. If the level is less than the configured notification
                 level, the notification will not be sent. Defaults to 1.
         """
-        print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: {body}\n")
+        self.log.info(body)
 
         # Check the level to see if we still want to send it. If level is none, it means
         # the message will always be printed. For example, this is used when testing notifications.
@@ -58,9 +60,9 @@ class NotificationHandler:
         # If you encounter Apprise errors, https://github.com/caronc/apprise/wiki/Development_LogCapture
         # may be useful.
         if result is None:
-            print('{datetime.today():%Y/%m/%d %H:%M:%S}: error: No notifications sent (configuration error)')
+            self.log.error('No notifications sent (configuration error)')
         elif result is False:
-            print('{datetime.today():%Y/%m/%d %H:%M:%S}: error: At least 1 notification failed to send')
+            self.log.error('At least 1 notification failed to send')
 
     def new_appointment(self, location_id: int, appointments: List[Schedule]) -> None:
         """

@@ -35,6 +35,7 @@ def set_up(config: Config) -> None:
 
         # Start each location in a separate process to run them in parallel
         process = Process(
+            name=f"ttp-location-{location_id}",
             target=schedule_retriever.monitor_location,
             args=(location_id,),
         )
