@@ -4,11 +4,9 @@ from time import sleep
 
 from typing import List
 
-from .schedule import Schedule
-
 from .notification_handler import NotificationHandler
 import requests
-from datetime import datetime
+from datetime import datetime, date
 
 from .config import Config
 
@@ -26,34 +24,23 @@ class ScheduleRetriever:
         self.log = logging.getLogger("schedule_retriever")
 
     def _evaluate_timestamp(
-        self, db: sqlite3.Connection, schedule: List[Schedule], location_id: int, timestamp: str
-    ) -> List[Schedule]:
+        self, schedule: list[datetime], timestamp: str
+    ) -> None:
         """
         Evaluates the given timestamp against the provided schedule and location ID. If the timestamp is within the
         acceptable range specified in the configuration, it is added to the schedule.
 
-        :param db: The connection to the sqlite3 database
-        :type db: sqlite3.Connection
         :param schedule: The current schedule to evaluate the timestamp against.
-        :type schedule: List[Schedule]
-        :param location_id: The ID of the location to evaluate the timestamp for.
-        :type location_id: int
+        :type schedule: list[datetime]
         :param timestamp: The timestamp to evaluate.
         :type timestamp: str
         :return: None
         """
         parsed_date = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M")
+        if self.config.is_date_acceptable(parsed_date):
+            schedule.append(parsed_date)
 
-        for dates in schedule:
-            if dates.appointment_date.date() == parsed_date.date():
-                if self._is_acceptable_appointment(db, location_id, parsed_date):
-                    dates.appointment_times.append(parsed_date)
-                return
-
-        if self._is_acceptable_appointment(db, location_id, parsed_date):
-            schedule.append(Schedule(parsed_date, [parsed_date]))
-
-    def _is_acceptable_appointment(
+    def _is_new_appointment(
         self, db: sqlite3.Connection, location_id: int, parsed_date: datetime
     ) -> bool:
         """
@@ -69,9 +56,6 @@ class ScheduleRetriever:
         :return: True if the appointment time is acceptable, False otherwise.
         :rtype: bool
         """
-        if not self.config.is_date_acceptable(parsed_date):
-            return False
-
         cursor = db.cursor()
 
         # Check if there is an existing appointment with the same location ID and timestamp
@@ -95,7 +79,7 @@ class ScheduleRetriever:
         return True
 
     def _clear_database_of_claimed_appointments(
-        self, db: sqlite3.Connection, location_id: int, all_active_appointments: List
+        self, db: sqlite3.Connection, location_id: int, all_active_appointments: list[datetime]
     ) -> None:
         """
         Clears the database of any appointments that have been claimed.
@@ -104,8 +88,8 @@ class ScheduleRetriever:
         :type db: sqlite3.Connection
         :param location_id: The ID of the location to check the appointment time for.
         :type location_id: int
-        :param all_active_appointments: The active appointments
-        :type all_active_appointments: List
+        :param all_active_appointments: The active, acceptable appointments
+        :type all_active_appointments: list[datetime]
         :return: None
         """
         cursor = db.cursor()
@@ -113,7 +97,7 @@ class ScheduleRetriever:
         cursor.execute(
             f"""DELETE FROM appointments
                         WHERE location_id = ? AND start_time NOT IN ({",".join(['?'] * len(all_active_appointments))})""",
-            [location_id] + all_active_appointments,
+            [location_id] + [when.isoformat() for when in all_active_appointments],
         )
 
         if cursor.rowcount > 0:
@@ -152,18 +136,22 @@ class ScheduleRetriever:
                 return
 
             self.log.debug(f"{len(appointments)} total appointments")
-            schedule = []
+            schedule = {} # new appointments
             all_active_appointments = []
             for appointment in appointments:
                 if appointment["active"]:
                     self._evaluate_timestamp(
-                        db, schedule, location_id, appointment["startTimestamp"]
+                        all_active_appointments, appointment["startTimestamp"]
                     )
-                    all_active_appointments.append(datetime.strptime(appointment["startTimestamp"], "%Y-%m-%dT%H:%M").isoformat())
 
             self.log.debug(f"{len(all_active_appointments)} acceptable appointments")
             self._clear_database_of_claimed_appointments(db, location_id, all_active_appointments)
 
+            for when in all_active_appointments:
+                if self._is_new_appointment(db, location_id, when):
+                    schedule.setdefault(when.date(), []).append(when)
+
+            self.log.debug(f"{len(schedule)} new appointments")
             if schedule:
                 self.notification_handler.new_appointment(location_id, schedule)
 
