@@ -2,6 +2,7 @@
 """Entrypoint into the script where the arguments are passed to src.main"""
 
 import argparse
+import logging
 import sys
 
 from datetime import datetime
@@ -53,7 +54,15 @@ def add_arguments(parser: argparse.ArgumentParser):
                         type=str,
                         help='Only consider appointments at least this amount of time from now (default: 15m)')
 
+    parser.add_argument('-D', '--debug',
+                        action='store_true',
+                        help='Log debug messages')
+
 def config_from_arguments(args):
+    log = logging.getLogger()
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+
     if args.current_appointment_date:
         config.current_appointment_date = datetime.strptime(args.current_appointment_date, '%B %d, %Y')
         if config.current_appointment_date < datetime.now():
@@ -101,11 +110,13 @@ def config_from_arguments(args):
     if args.test_notifications:
         schedule_retriever = ScheduleRetriever(config)
 
-        print("Sending test notifications...")
+        log.info("Sending test notifications...")
         schedule_retriever.notification_handler.send_notification("This is a test message.")
         sys.exit()
 
 if __name__ == "__main__":
+    logging.basicConfig(datefmt='%Y/%m/%d %H:%M:%S', format='%(asctime)s: %(message)s',
+                        level=logging.INFO)
     config = Config()
 
     parser = argparse.ArgumentParser(description="Parse command line arguments")
@@ -116,5 +127,6 @@ if __name__ == "__main__":
     try:
         main(config)
     except KeyboardInterrupt:
-        print("\nCtrl+C pressed. Stopping all checkins")
+        print("") # print newline first
+        log.info("Ctrl+C pressed. Stopping all checkins")
         sys.exit()

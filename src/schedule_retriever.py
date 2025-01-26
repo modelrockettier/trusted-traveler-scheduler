@@ -1,5 +1,6 @@
-import time
+import logging
 import sqlite3
+from time import sleep
 
 from typing import List
 
@@ -22,6 +23,7 @@ class ScheduleRetriever:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.notification_handler = NotificationHandler(self)
+        self.log = logging.getLogger("schedule_retriever")
 
     def _evaluate_timestamp(
         self, schedule: List[Schedule], location_id: int, timestamp: str
@@ -117,7 +119,7 @@ class ScheduleRetriever:
         )
 
         if cursor.rowcount > 0:
-            print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: Removed {cursor.rowcount} appointments that have been claimed for location {location_id}.\n")
+            self.log.info(f"Removed {cursor.rowcount} appointments that have been claimed for location {location_id}.\n")
 
         conn.commit()
         conn.close()
@@ -132,11 +134,13 @@ class ScheduleRetriever:
         :return: None
         """
         try:
-            time.sleep(1)
+            sleep(1)
             response = requests.get(
                 GOES_URL_FORMAT.format(location_id), timeout=30
             )
         except OSError:
+            if self.log.isEnabledFor(logging.DEBUG):
+                self.log.exception("Got OSError")
             return
 
         if 400 <= response.status_code < 500:
@@ -146,9 +150,10 @@ class ScheduleRetriever:
             appointments = response.json()
             if not appointments:
                 self._clear_database_of_claimed_appointments(location_id, [])
-                print(f"{datetime.today():%Y/%m/%d %H:%M:%S}: No active appointments available for location {location_id}.")
+                self.log.info(f"No active appointments available for location {location_id}.")
                 return
 
+            self.log.debug(f"{len(appointments)} total appointments")
             schedule = []
             all_active_appointments = []
             for appointment in appointments:
@@ -158,6 +163,7 @@ class ScheduleRetriever:
                     )
                     all_active_appointments.append(datetime.strptime(appointment["startTimestamp"], "%Y-%m-%dT%H:%M").isoformat())
 
+            self.log.debug(f"{len(all_active_appointments)} acceptable appointments")
             self._clear_database_of_claimed_appointments(location_id, all_active_appointments)
 
             if not schedule:
@@ -166,7 +172,8 @@ class ScheduleRetriever:
             self.notification_handler.new_appointment(location_id, schedule)
 
         except OSError:
-            return
+            if self.log.isEnabledFor(logging.DEBUG):
+                self.log.exception("Got OSError")
 
     def monitor_location(self, location_id: int) -> None:
         """
@@ -193,4 +200,4 @@ class ScheduleRetriever:
             time_taken = (time_after - time_before).total_seconds()
             time_to_sleep = self.config.retrieval_interval - time_taken
             if time_to_sleep > 0:
-                time.sleep(time_to_sleep)
+                sleep(time_to_sleep)

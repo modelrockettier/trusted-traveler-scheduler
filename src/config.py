@@ -1,6 +1,7 @@
 import json
-import re
+import logging
 import os
+import re
 import sys
 from typing import Any, Dict
 from datetime import datetime, timedelta
@@ -33,8 +34,8 @@ class Config:
         try:
             self._parse_config(config)
         except TypeError as err:
-            print("Error in configuration file:")
-            print(err)
+            log = logging.getLogger("config")
+            log.exception("Error in configuration file:")
             sys.exit()
 
     def _get_config(self) -> Dict[str, Any]:
