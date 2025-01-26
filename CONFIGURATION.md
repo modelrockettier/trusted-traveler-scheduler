@@ -4,6 +4,7 @@ This guide contains all the information you need to configure `trusted-traveler-
 ## Table of Contents
 
 - [Current Appointment Date](#current-appointment-date)
+- [Travel Time](#travel-time)
 - [Locations](#locations)
 - [Notifications](#notifications)
   - [Notification Level](#notification-level)
@@ -31,6 +32,19 @@ This represents the date of your current appointment if you have one. If you do 
 This above configuration will notify you if a new appointment is found for December 1, 2023, but will not notify you if an appointment is found for January 2, 2024.
 
 **Note:** This must be in the format of Month Day, Year (e.g. January 1, 2024).
+
+## Travel Time
+Default: 15 minutes
+
+Type: String
+
+This configuration represents the soonest appointment you would like to be notified about.
+
+```json
+{
+    "travel_time": "15m"
+}
+```
 
 ## Locations
 

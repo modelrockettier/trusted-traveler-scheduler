@@ -22,36 +22,42 @@ def add_arguments(parser: argparse.ArgumentParser):
                         help='test the notification and exit')
 
     parser.add_argument('-d', '--current-appointment-date',
-                        type=str,
+                        type=str, metavar='DATE',
                         help='Current appointment date in the format "Month Day, Year" (e.g. "December 31, 2023")')
 
     parser.add_argument('-l', '--location-ids',
-                        type=str,
+                        type=str, metavar='IDs',
                         help='Comma-separated list of location IDs (e.g. 1020,1030)')
 
     parser.add_argument('-n', '--notification-level',
-                        type=int,
+                        type=int, metavar='LEVEL',
                         help='Notification level (e.g. 1)')
 
     parser.add_argument('-u', '--notification-urls',
-                        type=str,
+                        type=str, metavar='URLs',
                         help='Comma-separated list of notification URLs in the Apprise format (e.g. discord://id/token,discord://id/token)')
 
     parser.add_argument('-r', '--retrieval-interval',
-                        type=str,
+                        type=str, metavar='TIME_PERIOD',
                         help='Retrieval interval in specified unit (e.g. 5m)')
 
     parser.add_argument('-s', '--start-appointment-time',
-                        type=str,
+                        type=str, metavar='TIME',
                         help='The earliest appointment time you would like to be notified for in HH:MM format (e.g. 08:00)')
 
     parser.add_argument('-e', '--end-appointment-time',
-                        type=str,
+                        type=str, metavar='TIME',
                         help='The latest appointment time you would like to be notified for in in HH:MM format (e.g. 17:00)')
+
+    parser.add_argument('-T', '--travel-time',
+                        type=str, metavar='TIME_PERIOD',
+                        help='Only consider appointments at least this amount of time from now (default: 15m)')
 
 def config_from_arguments(args):
     if args.current_appointment_date:
         config.current_appointment_date = datetime.strptime(args.current_appointment_date, '%B %d, %Y')
+        if config.current_appointment_date < datetime.now():
+            raise TypeError("'current_appointment_date' cannot be in the past")
 
     if args.location_ids:
         location_ids = [int(x) for x in args.location_ids.split(',')]
@@ -83,6 +89,12 @@ def config_from_arguments(args):
     if args.end_appointment_time:
         try:
             config.end_appointment_time = config.convert_to_datetime(args.end_appointment_time)
+        except ValueError as err:
+                raise TypeError(err)
+
+    if args.travel_time:
+        try:
+            config.travel_time = config.convert_to_seconds(args.travel_time)
         except ValueError as err:
                 raise TypeError(err)
 
