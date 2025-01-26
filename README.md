@@ -41,7 +41,7 @@ To use the script, run the following command:
 ```shell
 python ttp.py [-d CURRENT_APPOINTMENT_DATE] [-l LOCATION_IDS] [-n NOTIFICATION_LEVEL] 
     [-u NOTIFICATION_URLS] [-r RETRIEVAL_INTERVAL] [-s START_APPOINTMENT_TIME] 
-    [-e END_APPOINTMENT_TIME] [-T TRAVEL_TIME]
+    [-e END_APPOINTMENT_TIME] [-T TRAVEL_TIME] [--database DATABASE]
 ```
 All of the arguments are optional, and will take precedence over the values supplied in `config.json`, with the exception of `location_ids` and `notification_urls` which will merge the values into a single list.
 
@@ -79,7 +79,7 @@ Once you have pulled the image from docker, you may use the following command to
 ```shell
 docker run -d ecsouthwick/trusted-traveler-scheduler [-d CURRENT_APPOINTMENT_DATE] [-l LOCATION_IDS] 
     [-n NOTIFICATION_LEVEL] [-u NOTIFICATION_URLS] [-r RETRIEVAL_INTERVAL] [-s START_APPOINTMENT_TIME] 
-    [-e END_APPOINTMENT_TIME] [-T TRAVEL_TIME]
+    [-e END_APPOINTMENT_TIME] [-T TRAVEL_TIME] [--database DATABASE]
 ```
 Optionally, you may attach your `config.json` file to the container to utilize your configuration settings.
 

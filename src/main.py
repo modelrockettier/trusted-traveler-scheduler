@@ -49,5 +49,5 @@ def main(config: Config) -> None:
 
     :param config: A Config object containing the configuration for the scheduler.
     """
-    create_database('ttp.db')
+    create_database(config.database or ":memory:")
     set_up(config)

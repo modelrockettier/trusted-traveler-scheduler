@@ -19,6 +19,7 @@ class Config:
         # Default values are set
         self.current_appointment_date = None
         self.travel_time = 900 # 15 minutes
+        self.database = 'ttp.db'
         self.location_ids = []
         self.notification_level = NotificationLevel.INFO
         self.notification_urls = []
@@ -158,6 +159,9 @@ class Config:
                 raise TypeError("'travel_time' must be a string")
 
             self.travel_time = self.convert_to_seconds(self.travel_time)
+
+        if "database" in config:
+            self.database = config["database"]
 
     def convert_to_seconds(self, time: str) -> int:
         """

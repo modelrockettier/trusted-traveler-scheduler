@@ -58,6 +58,10 @@ def add_arguments(parser: argparse.ArgumentParser):
                         action='store_true',
                         help='Log debug messages')
 
+    parser.add_argument('--database',
+                        type=str,
+                        help='The sqlite3 database to prevent duplicate notifications (default ttp.db)')
+
 def config_from_arguments(args):
     log = logging.getLogger()
     if args.debug:
@@ -106,6 +110,9 @@ def config_from_arguments(args):
             config.travel_time = config.convert_to_seconds(args.travel_time)
         except ValueError as err:
                 raise TypeError(err)
+
+    if args.database is not None:
+        config.database = args.database
 
     if args.test_notifications:
         schedule_retriever = ScheduleRetriever(config)
