@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from typing import Any, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, date, time, timedelta
 
 from .notification_level import NotificationLevel
 
@@ -24,8 +24,8 @@ class Config:
         self.notification_level = NotificationLevel.INFO
         self.notification_urls = []
         self.retrieval_interval = 300
-        self.start_appointment_time = datetime(year=9999, month=12, day=31, hour=0, minute=0)
-        self.end_appointment_time = datetime(year=9999, month=12, day=31, hour=23, minute=59)
+        self.start_appointment_time = None
+        self.end_appointment_time = None
 
         # Read the config file
         config = self._get_config()
@@ -90,102 +90,73 @@ class Config:
             TypeError: If any of the configuration values are of the wrong type.
             ValueError: If any of the configuration values are invalid.
         """
-        if config.get("current_appointment_date"):
-            self.current_appointment_date = config["current_appointment_date"]
-
-            try:
-                self.current_appointment_date = datetime.strptime(self.current_appointment_date, '%B %d, %Y')
-            except:
-                raise TypeError("'current_appointment_date' must be in the format of Month Day, Year (e.g. January 1, 2024)")
-
-            if self.current_appointment_date < datetime.now():
-                raise TypeError("'current_appointment_date' cannot be in the past")
+        conversions = {
+            'current_appointment_date': self.convert_to_date,
+            'notification_level': int,
+            'retrieval_interval': self.convert_to_seconds,
+            'start_appointment_time': self.convert_to_time,
+            'end_appointment_time': self.convert_to_time,
+            'travel_time': self.convert_to_seconds,
+            'database': str,
+        }
+        for key, func in conversions.items():
+            value = config.get(key)
+            if value is not None:
+                setattr(self, key, func(value))
 
         if "location_ids" in config:
-            self.location_ids = config["location_ids"]
-
-            if not isinstance(self.location_ids, (list, int)):
+            if isinstance(config["location_ids"], (int, str)):
+                self.location_ids = [config["location_ids"]]
+            elif isinstance(config["location_ids"], list):
+                self.location_ids = config["location_ids"]
+            else:
                 raise TypeError("'location_ids' must be a list or integer")
 
-        if "notification_level" in config:
-            self.notification_level = config["notification_level"]
-
-            if not isinstance(self.notification_level, int):
-                raise TypeError("'notification_level' must be an integer")
-
         if "notification_urls" in config:
-            self.notification_urls = config["notification_urls"]
-
-            if not isinstance(self.notification_urls, (list, str)):
+            if isinstance(config["notification_urls"], str):
+                self.notification_urls = [config["notification_urls"]]
+            elif isinstance(config["notification_urls"], list):
+                self.notification_urls = config["notification_urls"]
+            else:
                 raise TypeError("'notification_urls' must be a list or string")
 
-        if "retrieval_interval" in config:
-            self.retrieval_interval = config["retrieval_interval"]
+    def validate(self):
+        if self.current_appointment_date and self.current_appointment_date < date.today():
+            raise TypeError("'current_appointment_date' cannot be in the past")
 
-            if not isinstance(self.retrieval_interval, str):
-                raise TypeError("'retrieval_interval' must be a string")
+        if (self.start_appointment_time and self.end_appointment_time and
+            self.start_appointment_time > self.end_appointment_time):
+            raise TypeError("'start_appointment_time' cannot be after 'end_appointment_time'")
 
-            try:
-                self.retrieval_interval = self.convert_to_seconds(self.retrieval_interval)
-            except ValueError as err:
-                raise TypeError(err)
+        # Sort and unique-ify location_ids
+        self.location_ids = sorted(set(self.location_ids))
+        # Unique-ify notification_urls, but maintain ordering on Python 3.7+
+        self.notification_urls = list(dict.fromkeys(self.notification_urls))
 
-        if "start_appointment_time" in config:
-            self.start_appointment_time = config["start_appointment_time"]
-
-            if not isinstance(self.start_appointment_time, str):
-                raise TypeError("'start_appointment_time' must be a string")
-
-            try:
-                self.start_appointment_time = self.convert_to_datetime(self.start_appointment_time)
-            except ValueError as err:
-                raise TypeError(err)
-
-        if "end_appointment_time" in config:
-            self.end_appointment_time = config["end_appointment_time"]
-
-            if not isinstance(self.end_appointment_time, str):
-                raise TypeError("'end_appointment_time' must be a string")
-
-            try:
-                self.end_appointment_time = self.convert_to_datetime(self.end_appointment_time)
-            except ValueError as err:
-                raise TypeError(err)
-
-        if "travel_time" in config:
-            self.travel_time = config["travel_time"]
-
-            if not isinstance(self.travel_time, str):
-                raise TypeError("'travel_time' must be a string")
-
-            self.travel_time = self.convert_to_seconds(self.travel_time)
-
-        if "database" in config:
-            self.database = config["database"]
-
-    def convert_to_seconds(self, time: str) -> int:
+    @staticmethod
+    def convert_to_seconds(duration: str | int) -> int:
         """
-        Converts a time string to seconds.
+        Converts a duration string to seconds.
 
         Args:
-            time: A string representing a time interval in the format of <integer><unit>. (e.g. 45s (seconds), 30m (minutes), 2h (hours), 1d (days))
+            duration: A string representing a time interval in the format of <integer><unit>. (e.g. 45s (seconds), 30m (minutes), 2h (hours), 1d (days))
 
         Returns:
             An integer representing the time interval in seconds.
 
         Raises:
-            ValueError: If the time string is not in the correct format or contains an invalid time unit.
+            ValueError: If the duration string is not in the correct format or contains an invalid time unit.
         """
         # If the time is already an integer, return it
         try:
-            return int(time)
+            return int(duration)
         except:
             pass
 
-        match = re.match(r'^(\d+)([smhd])$', time.lower())
+        match = re.match(r'^(\d+)([smhd])$', duration.lower())
 
         if not match:
-            raise ValueError(f"'retrieval_interval' must be in the format of <integer><unit>. (e.g. 45s (seconds), 30m (minutes), 2h (hours), 1d (days))")
+            raise ValueError(f"must be in the format of <integer><unit>. (e.g. 45s (seconds), 30m (minutes), 2h (hours), 1d (days))")
 
         value, unit = int(match.group(1)), match.group(2)
 
@@ -198,22 +169,57 @@ class Config:
         elif unit == "d":
             return value * 86400
         else:
-            raise ValueError(f"'retrieval_interval' invalid time unit: {unit}. Accepted units: s (seconds), m (minutes), h (hours), d (days).")
+            raise ValueError(f"invalid time unit: {unit}. Accepted units: s (seconds), m (minutes), h (hours), d (days).")
 
-    def convert_to_datetime(self, time: str) -> datetime:
+    @staticmethod
+    def convert_to_date(dateStr: str | date) -> date:
         """
-        Converts a time string to a datetime object.
+        Converts a date string to a datetime.date object.
 
         Args:
-            time: A string representing a time in the format of HH:MM.
+            dateStr: A string representing a date in the format of HH:MM.
 
         Returns:
-            A datetime object representing the time.
+            A date object representing the date.
+
+        Raises:
+            ValueError: If the date string is not in the correct format.
+        """
+        # If the dateStr is already a date, return it
+        try:
+            return date(dateStr)
+        except:
+            pass
+
+        try:
+            return datetime.strptime(dateStr, '%B %d, %Y').date()
+        except Exception:
+            raise ValueError("date must be in the format of Month Day, Year (e.g. January 1, 2024)")
+
+    @staticmethod
+    def convert_to_time(timeStr: str | time) -> time:
+        """
+        Converts a time string to a datetime.time object.
+
+        Args:
+            timeStr: A string representing a time in the format of HH:MM.
+
+        Returns:
+            A time object representing the time.
 
         Raises:
             ValueError: If the time string is not in the correct format.
         """
-        return datetime.strptime(time, "%H:%M")
+        # If the timeStr is already a time, return it
+        try:
+            return time(timeStr)
+        except:
+            pass
+
+        try:
+            return datetime.strptime(timeStr, "%H:%M").time()
+        except Exception:
+            raise ValueError("time must be in the format of HH:MM (e.g. 15:00)")
 
     def is_date_acceptable(self, when: datetime) -> bool:
         """
@@ -230,7 +236,7 @@ class Config:
         """
         if (
             self.current_appointment_date is not None
-            and when >= self.current_appointment_date
+            and when.date() >= self.current_appointment_date
         ):
             return False
 
@@ -242,13 +248,13 @@ class Config:
 
         if (
             self.start_appointment_time is not None
-            and when.time() < self.start_appointment_time.time()
+            and when.time() < self.start_appointment_time
         ):
             return False
 
         if (
             self.end_appointment_time is not None
-            and when.time() > self.end_appointment_time.time()
+            and when.time() > self.end_appointment_time
         ):
             return False
 
